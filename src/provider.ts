@@ -13,7 +13,7 @@ import type { HFModelItem } from "./types";
 
 import type { OllamaRequestBody } from "./ollama/ollamaTypes";
 
-import { parseModelId, createRetryConfig, executeWithRetry, normalizeUserModels } from "./utils";
+import { parseModelId, createRetryConfig, executeWithRetry, normalizeUserModels, findModelInGroups, resolvedToHFModelItem, parseGroupModelId } from "./utils";
 
 import { prepareLanguageModelChatInformation } from "./provideModel";
 import { countMessageTokens } from "./provideToken";
@@ -106,26 +106,32 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 			},
 		};
 		try {
-			// get model config from user settings
-			const config = vscode.workspace.getConfiguration();
-			const userModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+			// --- Model resolution: prefer group-based, fallback to legacy flat config ---
+			let um: HFModelItem | undefined;
+			let parsedModelId: { baseId: string; configId?: string };
 
-			// Parse model ID to handle config ID
-			const parsedModelId = parseModelId(model.id);
+			const groupResolved = findModelInGroups(model.id);
+			if (groupResolved) {
+				// New group-based path
+				um = resolvedToHFModelItem(groupResolved);
+				parsedModelId = { baseId: groupResolved.model.id };
+			} else {
+				// Legacy flat config path
+				const config = vscode.workspace.getConfiguration();
+				const userModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
 
-			// Find matching user model configuration
-			// Prioritize matching models with same base ID and config ID
-			// If no config ID, match models with same base ID
-			let um: HFModelItem | undefined = userModels.find(
-				(um) =>
-					um.id === parsedModelId.baseId &&
-					((parsedModelId.configId && um.configId === parsedModelId.configId) ||
-						(!parsedModelId.configId && !um.configId))
-			);
+				parsedModelId = parseModelId(model.id);
 
-			// If still no model found, try to find any model matching the base ID (most lenient match, for backward compatibility)
-			if (!um) {
-				um = userModels.find((um) => um.id === parsedModelId.baseId);
+				um = userModels.find(
+					(m) =>
+						m.id === parsedModelId.baseId &&
+						((parsedModelId.configId && m.configId === parsedModelId.configId) ||
+							(!parsedModelId.configId && !m.configId))
+				);
+
+				if (!um) {
+					um = userModels.find((m) => m.id === parsedModelId.baseId);
+				}
 			}
 
 			// Prepare model configuration
@@ -138,7 +144,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 			// Apply delay between consecutive requests
 			const modelDelay = um?.delay;
-			const globalDelay = config.get<number>("oaicopilot.delay", 0);
+			const globalDelay = vscode.workspace.getConfiguration().get<number>("oaicopilot.delay", 0);
 			const delayMs = modelDelay !== undefined ? modelDelay : globalDelay;
 
 			if (delayMs > 0 && this._lastRequestTime !== null) {
@@ -156,14 +162,15 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 			// Get API key for the model's provider
 			const provider = um?.owned_by;
-			const useGenericKey = !um?.baseUrl;
-			const modelApiKey = await this.ensureApiKey(useGenericKey, provider);
+			const groupParsed = parseGroupModelId(model.id);
+			const useGenericKey = !um?.baseUrl && !groupParsed;
+			const modelApiKey = await this.ensureApiKey(useGenericKey, groupParsed?.groupName ?? provider);
 			if (!modelApiKey) {
 				throw new Error("OAI Compatible API key not found");
 			}
 
 			// send chat request
-			const BASE_URL = um?.baseUrl || config.get<string>("oaicopilot.baseUrl", "");
+			const BASE_URL = um?.baseUrl || vscode.workspace.getConfiguration().get<string>("oaicopilot.baseUrl", "");
 			if (!BASE_URL || !BASE_URL.startsWith("http")) {
 				throw new Error(`Invalid base URL configuration.`);
 			}

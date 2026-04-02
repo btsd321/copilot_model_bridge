@@ -5,8 +5,8 @@ import { OpenaiApi } from "../openai/openaiApi";
 import { OpenaiResponsesApi } from "../openai/openaiResponsesApi";
 import { AnthropicApi } from "../anthropic/anthropicApi";
 import { OllamaApi } from "../ollama/ollamaApi";
-import { normalizeUserModels } from "../utils";
-import type { HFModelItem } from "../types";
+import { normalizeUserModels, loadGroups, hasGroupConfig, resolvedToHFModelItem } from "../utils";
+import type { HFModelItem, ResolvedModel } from "../types";
 
 /**
  * Git commit message generator module
@@ -167,20 +167,37 @@ async function performCommitMsgGeneration(secrets: vscode.SecretStorage, gitDiff
 		prompts.push(truncatedDiff);
 		const prompt = prompts.join("\n\n");
 
-		// Get user models from configuration
-		const userModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+		// Get commit model: prefer group-based config, fallback to legacy flat config
+		let selectedModel: HFModelItem;
 
-		// Filter models that are marked for commit generation
-		const commitModels = userModels.filter((model: HFModelItem) => model.useForCommitGeneration === true);
-
-		if (commitModels.length === 0) {
-			throw new Error(
-				"No models configured for commit message generation. Please set 'useForCommitGeneration' to true for at least one model in your configuration."
-			);
+		if (hasGroupConfig()) {
+			const groups = loadGroups();
+			let found: ResolvedModel | undefined;
+			for (const group of groups) {
+				for (const m of group.models) {
+					if (m.useForCommitGeneration) {
+						found = { group, model: m };
+						break;
+					}
+				}
+				if (found) { break; }
+			}
+			if (!found) {
+				throw new Error(
+					"No models configured for commit message generation. Please set 'useForCommitGeneration' to true for at least one model in your group configuration."
+				);
+			}
+			selectedModel = resolvedToHFModelItem(found);
+		} else {
+			const userModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+			const commitModels = userModels.filter((model: HFModelItem) => model.useForCommitGeneration === true);
+			if (commitModels.length === 0) {
+				throw new Error(
+					"No models configured for commit message generation. Please set 'useForCommitGeneration' to true for at least one model in your configuration."
+				);
+			}
+			selectedModel = commitModels[0];
 		}
-
-		// Use the first model marked for commit generation
-		const selectedModel = commitModels[0];
 
 		// Get API key for the model's provider
 		const apiKey = await ensureApiKey(secrets, selectedModel.owned_by);

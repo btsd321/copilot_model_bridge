@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { CancellationToken, LanguageModelChatInformation } from "vscode";
 
 import type { HFApiMode, HFModelItem, HFModelsResponse } from "./types";
-import { normalizeUserModels } from "./utils";
+import { normalizeUserModels, loadGroups, buildGroupModelId, hasGroupConfig } from "./utils";
 import { VersionManager } from "./versionManager";
 import { fetchGeminiModels } from "./gemini/geminiApi";
 import { fetchOllamaModels } from "./ollama/ollamaApi";
@@ -18,6 +18,59 @@ const EXTENSION_LABEL = "OAICopilot";
  * @returns A promise that resolves to the list of available language models
  */
 export async function prepareLanguageModelChatInformation(
+	options: { silent: boolean },
+	_token: CancellationToken,
+	secrets: vscode.SecretStorage
+): Promise<LanguageModelChatInformation[]> {
+	// Prefer new group-based config; fall back to legacy flat config
+	if (hasGroupConfig()) {
+		return prepareFromGroups();
+	}
+	return prepareFromLegacy(options, _token, secrets);
+}
+
+/**
+ * Build model information list from the new group-based configuration.
+ */
+function prepareFromGroups(): LanguageModelChatInformation[] {
+	const groups = loadGroups();
+	const infos: LanguageModelChatInformation[] = [];
+
+	for (const group of groups) {
+		for (const m of group.models) {
+			const contextLen = m.context_length ?? DEFAULT_CONTEXT_LENGTH;
+			const maxOutput = m.max_completion_tokens ?? m.max_tokens ?? DEFAULT_MAX_TOKENS;
+			const maxInput = Math.max(1, contextLen - maxOutput);
+
+			const compositeId = buildGroupModelId(group.name, m.id);
+			const modelName = m.displayName || `${m.id}`;
+			const detail = `${group.name} (${EXTENSION_LABEL})`;
+
+			infos.push({
+				id: compositeId,
+				name: modelName,
+				detail: detail,
+				tooltip: `${group.name} · ${group.apiMode} · ${group.baseUrl}`,
+				family: m.family ?? EXTENSION_LABEL,
+				version: "1.0.0",
+				maxInputTokens: maxInput,
+				maxOutputTokens: maxOutput,
+				capabilities: {
+					toolCalling: true,
+					imageInput: m.vision ?? false,
+				},
+			} satisfies LanguageModelChatInformation);
+		}
+	}
+
+	return infos;
+}
+
+/**
+ * Build model information list from the legacy flat configuration.
+ * Kept for backward compatibility.
+ */
+async function prepareFromLegacy(
 	options: { silent: boolean },
 	_token: CancellationToken,
 	secrets: vscode.SecretStorage

@@ -142,3 +142,121 @@ export interface RetryConfig {
 
 /** Supports API mode. */
 export type HFApiMode = "openai" | "openai-responses" | "ollama" | "anthropic" | "gemini";
+
+// ─── Group-based model management ────────────────────────────────────────────
+
+/**
+ * A model group that represents a single provider endpoint.
+ * Each group has one apiMode, one baseUrl, one apiKey, and multiple models.
+ */
+export interface ModelGroup {
+	/** Unique group name (e.g., "DeepSeek", "Claude", "Local-Ollama") */
+	name: string;
+	/** API protocol for this group */
+	apiMode: HFApiMode;
+	/** Base URL for the API endpoint */
+	baseUrl: string;
+	/** Custom HTTP headers merged with defaults */
+	headers?: Record<string, string>;
+	/** Models configured under this group */
+	models: GroupModelConfig[];
+}
+
+/**
+ * Model-level configuration within a group.
+ * Provider-level settings (apiMode, baseUrl, apiKey, headers) come from the parent group.
+ */
+export interface GroupModelConfig {
+	/** Model ID sent to the API (e.g., "deepseek-chat", "claude-sonnet-4-20250514") */
+	id: string;
+	/** Display name shown in the Copilot model picker */
+	displayName?: string;
+	/** Model family for family-specific optimizations */
+	family?: string;
+	/** Context window size in tokens. Default: 128000 */
+	context_length?: number;
+	/** Maximum output tokens. Default: 4096 */
+	max_tokens?: number;
+	/** Maximum output tokens (OpenAI new standard parameter, takes precedence over max_tokens) */
+	max_completion_tokens?: number;
+	/** Whether the model supports image input */
+	vision?: boolean;
+	/** Sampling temperature (0-2) */
+	temperature?: number | null;
+	/** Top-p sampling */
+	top_p?: number | null;
+	/** Top-k sampling */
+	top_k?: number;
+	/** Minimum probability threshold */
+	min_p?: number;
+	/** Frequency penalty */
+	frequency_penalty?: number;
+	/** Presence penalty */
+	presence_penalty?: number;
+	/** Repetition penalty */
+	repetition_penalty?: number;
+	/** Enable thinking/reasoning mode */
+	enable_thinking?: boolean;
+	/** Token budget for thinking chain output */
+	thinking_budget?: number;
+	/** Thinking configuration (Zai provider style) */
+	thinking?: ThinkingConfig;
+	/** Reasoning effort level (OpenAI style) */
+	reasoning_effort?: string;
+	/** Reasoning configuration (OpenRouter style) */
+	reasoning?: ReasoningConfig;
+	/** Whether to include reasoning_content in assistant messages */
+	include_reasoning_in_request?: boolean;
+	/** Extra request body parameters */
+	extra?: Record<string, unknown>;
+	/** Whether this model can be used for Git commit message generation */
+	useForCommitGeneration?: boolean;
+	/** Per-model request delay in ms */
+	delay?: number;
+}
+
+/**
+ * Internal resolved model: group + model merged, ready for API calls.
+ * Used by provider.ts after looking up a model from groups.
+ */
+export interface ResolvedModel {
+	group: ModelGroup;
+	model: GroupModelConfig;
+}
+
+/**
+ * Convert a ResolvedModel to the HFModelItem format expected by API implementation layers.
+ * This bridges the new group-based config to the existing API adapters (OpenaiApi, AnthropicApi, etc.).
+ */
+export function resolveToHFModelItem(resolved: ResolvedModel): HFModelItem {
+	const { group, model } = resolved;
+	return {
+		id: model.id,
+		owned_by: group.name,
+		displayName: model.displayName,
+		baseUrl: group.baseUrl,
+		apiMode: group.apiMode,
+		headers: group.headers,
+		family: model.family,
+		context_length: model.context_length,
+		max_tokens: model.max_tokens,
+		max_completion_tokens: model.max_completion_tokens,
+		vision: model.vision,
+		temperature: model.temperature,
+		top_p: model.top_p,
+		top_k: model.top_k,
+		min_p: model.min_p,
+		frequency_penalty: model.frequency_penalty,
+		presence_penalty: model.presence_penalty,
+		repetition_penalty: model.repetition_penalty,
+		enable_thinking: model.enable_thinking,
+		thinking_budget: model.thinking_budget,
+		thinking: model.thinking,
+		reasoning_effort: model.reasoning_effort,
+		reasoning: model.reasoning,
+		include_reasoning_in_request: model.include_reasoning_in_request,
+		extra: model.extra,
+		useForCommitGeneration: model.useForCommitGeneration,
+		delay: model.delay,
+	};
+}

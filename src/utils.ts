@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import type { HFModelItem, RetryConfig } from "./types";
+import type { HFModelItem, RetryConfig, ModelGroup, GroupModelConfig, ResolvedModel } from "./types";
+import { resolveToHFModelItem } from "./types";
 import { OpenAIFunctionToolDef } from "./openai/openaiTypes";
 
 const RETRY_MAX_ATTEMPTS = 3;
@@ -54,6 +55,193 @@ export function normalizeUserModels(models: unknown): HFModelItem[] {
 		out.push({ ...(item as HFModelItem), owned_by: provider });
 	}
 	return out;
+}
+
+// ─── Group-based model management utilities ──────────────────────────────────
+
+/** Model ID separator between group name and model id: "groupName/modelId" */
+const GROUP_MODEL_SEPARATOR = "/";
+
+/**
+ * Parse a composite model ID in the format "groupName/modelId".
+ * Returns { groupName, modelId } or null if the format is not a group model ID.
+ */
+export interface ParsedGroupModelId {
+	groupName: string;
+	modelId: string;
+}
+
+export function parseGroupModelId(compositeId: string): ParsedGroupModelId | null {
+	const idx = compositeId.indexOf(GROUP_MODEL_SEPARATOR);
+	if (idx <= 0 || idx === compositeId.length - 1) {
+		return null;
+	}
+	return {
+		groupName: compositeId.slice(0, idx),
+		modelId: compositeId.slice(idx + 1),
+	};
+}
+
+/**
+ * Build a composite model ID from group name and model id.
+ */
+export function buildGroupModelId(groupName: string, modelId: string): string {
+	return `${groupName}${GROUP_MODEL_SEPARATOR}${modelId}`;
+}
+
+/**
+ * Load model groups from VS Code workspace configuration.
+ */
+export function loadGroups(): ModelGroup[] {
+	const config = vscode.workspace.getConfiguration();
+	const raw = config.get<unknown[]>("oaicopilot.groups", []);
+	if (!Array.isArray(raw)) {
+		return [];
+	}
+	const groups: ModelGroup[] = [];
+	for (const item of raw) {
+		if (!item || typeof item !== "object") {
+			continue;
+		}
+		const obj = item as Record<string, unknown>;
+		const name = typeof obj.name === "string" ? obj.name.trim() : "";
+		const baseUrl = typeof obj.baseUrl === "string" ? obj.baseUrl.trim() : "";
+		const apiMode = typeof obj.apiMode === "string" ? obj.apiMode : "openai";
+		if (!name || !baseUrl) {
+			continue;
+		}
+		const models: GroupModelConfig[] = [];
+		if (Array.isArray(obj.models)) {
+			for (const m of obj.models) {
+				if (m && typeof m === "object" && typeof (m as Record<string, unknown>).id === "string") {
+					models.push(m as GroupModelConfig);
+				}
+			}
+		}
+		groups.push({
+			name,
+			apiMode: apiMode as ModelGroup["apiMode"],
+			baseUrl,
+			headers: obj.headers as Record<string, string> | undefined,
+			models,
+		});
+	}
+	return groups;
+}
+
+/**
+ * Find a model in groups by composite ID ("groupName/modelId").
+ * Returns a ResolvedModel or undefined if not found.
+ */
+export function findModelInGroups(compositeId: string, groups?: ModelGroup[]): ResolvedModel | undefined {
+	const parsed = parseGroupModelId(compositeId);
+	if (!parsed) {
+		return undefined;
+	}
+	const loadedGroups = groups ?? loadGroups();
+	const group = loadedGroups.find((g) => g.name === parsed.groupName);
+	if (!group) {
+		return undefined;
+	}
+	const model = group.models.find((m) => m.id === parsed.modelId);
+	if (!model) {
+		return undefined;
+	}
+	return { group, model };
+}
+
+/**
+ * Convert a ResolvedModel to HFModelItem for use by API implementation layers.
+ */
+export function resolvedToHFModelItem(resolved: ResolvedModel): HFModelItem {
+	return resolveToHFModelItem(resolved);
+}
+
+/**
+ * Migrate old flat config (oaicopilot.baseUrl + oaicopilot.models) to new groups format.
+ * Groups models by owned_by. Only runs if groups is empty and models is non-empty.
+ * Returns true if migration was performed.
+ */
+export async function migrateOldConfig(): Promise<boolean> {
+	const config = vscode.workspace.getConfiguration();
+	const existingGroups = config.get<unknown[]>("oaicopilot.groups", []);
+	if (Array.isArray(existingGroups) && existingGroups.length > 0) {
+		return false; // already has groups, no migration needed
+	}
+
+	const oldModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+	if (oldModels.length === 0) {
+		return false; // nothing to migrate
+	}
+
+	const globalBaseUrl = config.get<string>("oaicopilot.baseUrl", "");
+
+	// Group models by owned_by (provider name)
+	const byProvider = new Map<string, HFModelItem[]>();
+	for (const m of oldModels) {
+		const provider = m.owned_by || "default";
+		if (!byProvider.has(provider)) {
+			byProvider.set(provider, []);
+		}
+		byProvider.get(provider)!.push(m);
+	}
+
+	const groups: ModelGroup[] = [];
+	for (const [providerName, models] of byProvider) {
+		// Determine group-level settings from the first model
+		const first = models[0];
+		const baseUrl = first.baseUrl || globalBaseUrl;
+		const apiMode = first.apiMode ?? "openai";
+
+		const groupModels: GroupModelConfig[] = models.map((m) => ({
+			id: m.id,
+			displayName: m.displayName,
+			family: m.family,
+			context_length: m.context_length,
+			max_tokens: m.max_tokens,
+			max_completion_tokens: m.max_completion_tokens,
+			vision: m.vision,
+			temperature: m.temperature,
+			top_p: m.top_p,
+			top_k: m.top_k,
+			min_p: m.min_p,
+			frequency_penalty: m.frequency_penalty,
+			presence_penalty: m.presence_penalty,
+			repetition_penalty: m.repetition_penalty,
+			enable_thinking: m.enable_thinking,
+			thinking_budget: m.thinking_budget,
+			thinking: m.thinking,
+			reasoning_effort: m.reasoning_effort,
+			reasoning: m.reasoning,
+			include_reasoning_in_request: m.include_reasoning_in_request,
+			extra: m.extra,
+			useForCommitGeneration: m.useForCommitGeneration,
+			delay: m.delay,
+		}));
+
+		groups.push({
+			name: providerName,
+			apiMode,
+			baseUrl,
+			headers: first.headers,
+			models: groupModels,
+		});
+	}
+
+	// Write new groups config
+	await config.update("oaicopilot.groups", groups, vscode.ConfigurationTarget.Global);
+	console.log(`[OAICopilot] Migrated ${oldModels.length} models into ${groups.length} groups.`);
+	return true;
+}
+
+/**
+ * Check whether we should use the new group-based config or fall back to legacy flat config.
+ * Returns true if groups are configured.
+ */
+export function hasGroupConfig(): boolean {
+	const config = vscode.workspace.getConfiguration();
+	const groups = config.get<unknown[]>("oaicopilot.groups", []);
+	return Array.isArray(groups) && groups.length > 0;
 }
 
 /**

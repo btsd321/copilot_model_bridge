@@ -75,6 +75,16 @@
 				"title": "Open Configuration UI"
 			},
 			{
+				"command": "oaicopilot.addGroup",
+				"category": "OAICopilot",
+				"title": "Add Model Group"
+			},
+			{
+				"command": "oaicopilot.addModelToGroup",
+				"category": "OAICopilot",
+				"title": "Add Model to Group"
+			},
+			{
 				"command": "oaicopilot.generateGitCommitMessage",
 				"title": "Generate Commit Message with OAICopilot",
 				"category": "OAICopilot",
@@ -114,10 +124,208 @@
 		"configuration": {
 			"title": "OAI Compatible Copilot",
 			"properties": {
+				"oaicopilot.groups": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "object",
+						"properties": {
+							"name": {
+								"type": "string",
+								"description": "Unique group name (e.g., 'DeepSeek', 'Claude', 'Local-Ollama')."
+							},
+							"apiMode": {
+								"type": "string",
+								"enum": [
+									"openai",
+									"openai-responses",
+									"ollama",
+									"anthropic",
+									"gemini"
+								],
+								"default": "openai",
+								"description": "API mode: 'openai' (Default), 'openai-responses', 'ollama', 'anthropic', 'gemini'."
+							},
+							"baseUrl": {
+								"type": "string",
+								"description": "Base URL for the API endpoint (e.g., 'https://api.deepseek.com/v1')."
+							},
+							"headers": {
+								"type": "object",
+								"additionalProperties": {
+									"type": "string"
+								},
+								"description": "Custom HTTP headers merged with defaults (Authorization, Content-Type, User-Agent)."
+							},
+							"models": {
+								"type": "array",
+								"default": [],
+								"items": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"description": "Model ID sent to the API (e.g., 'deepseek-chat')."
+										},
+										"displayName": {
+											"type": "string",
+											"description": "Display name shown in the Copilot model picker."
+										},
+										"family": {
+											"type": "string",
+											"description": "Model family (e.g., 'gpt-4', 'claude-3'). Defaults to 'oai-compatible'."
+										},
+										"context_length": {
+											"type": "number",
+											"default": 128000,
+											"minimum": 1000,
+											"maximum": 10000000,
+											"description": "Context window size in tokens. Default is 128000."
+										},
+										"max_tokens": {
+											"type": "number",
+											"default": 4096,
+											"minimum": 1,
+											"maximum": 10000000,
+											"description": "Maximum output tokens. Default is 4096."
+										},
+										"max_completion_tokens": {
+											"type": "number",
+											"minimum": 1,
+											"maximum": 10000000,
+											"description": "Maximum output tokens (OpenAI new standard parameter, takes precedence over max_tokens)."
+										},
+										"vision": {
+											"type": "boolean",
+											"default": false,
+											"description": "Whether the model supports image input."
+										},
+										"temperature": {
+											"type": "number",
+											"default": 0,
+											"minimum": 0,
+											"maximum": 2,
+											"description": "Sampling temperature (0-2). Default is 0."
+										},
+										"top_p": {
+											"type": "number",
+											"default": 1,
+											"minimum": 0,
+											"maximum": 1,
+											"description": "Top-p sampling (0-1]."
+										},
+										"top_k": {
+											"type": "number",
+											"minimum": 1,
+											"description": "Top-k sampling."
+										},
+										"min_p": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 1,
+											"description": "Minimum probability threshold."
+										},
+										"frequency_penalty": {
+											"type": "number",
+											"minimum": -2,
+											"maximum": 2,
+											"description": "Frequency penalty (-2 to 2)."
+										},
+										"presence_penalty": {
+											"type": "number",
+											"minimum": -2,
+											"maximum": 2,
+											"description": "Presence penalty (-2 to 2)."
+										},
+										"repetition_penalty": {
+											"type": "number",
+											"minimum": 0,
+											"maximum": 2,
+											"description": "Repetition penalty (0 to 2]."
+										},
+										"enable_thinking": {
+											"type": "boolean",
+											"default": false,
+											"description": "Enable thinking/reasoning mode."
+										},
+										"thinking_budget": {
+											"type": "number",
+											"minimum": 128,
+											"maximum": 10000000,
+											"description": "Token budget for thinking chain output."
+										},
+										"thinking": {
+											"type": "object",
+											"description": "Thinking configuration (Zai provider style).",
+											"properties": {
+												"type": {
+													"type": "string",
+													"enum": ["enabled", "disabled"]
+												}
+											}
+										},
+										"reasoning_effort": {
+											"type": "string",
+											"enum": ["high", "medium", "low", "minimal"],
+											"description": "Reasoning effort level (OpenAI style)."
+										},
+										"reasoning": {
+											"type": "object",
+											"description": "Reasoning configuration (OpenRouter style).",
+											"properties": {
+												"effort": {
+													"type": "string",
+													"enum": ["high", "medium", "low", "minimal", "auto"]
+												},
+												"exclude": {
+													"type": "boolean",
+													"default": false
+												},
+												"max_tokens": {
+													"type": "number",
+													"minimum": 1
+												},
+												"enabled": {
+													"type": "boolean",
+													"default": true
+												}
+											}
+										},
+										"include_reasoning_in_request": {
+											"type": "boolean",
+											"default": false,
+											"description": "Include reasoning_content in assistant messages sent to the API."
+										},
+										"extra": {
+											"type": "object",
+											"description": "Extra request body parameters."
+										},
+										"useForCommitGeneration": {
+											"type": "boolean",
+											"default": false,
+											"description": "Whether to use this model for Git commit message generation."
+										},
+										"delay": {
+											"type": "number",
+											"default": 0,
+											"minimum": 0,
+											"description": "Per-model request delay in ms."
+										}
+									},
+									"required": ["id"]
+								},
+								"description": "Models configured under this group."
+							}
+						},
+						"required": ["name", "apiMode", "baseUrl"]
+					},
+					"description": "Model groups. Each group has one provider endpoint (apiMode + baseUrl + apiKey) and multiple models."
+				},
 				"oaicopilot.baseUrl": {
 					"type": "string",
-					"default": "https://router.huggingface.co/v1",
-					"description": "The base URL for the Openai Compatible Inference API. Default value is Hugging Face."
+					"default": "",
+					"description": "[Deprecated: use oaicopilot.groups] Legacy global base URL. Used as fallback for old flat model configs.",
+					"deprecationMessage": "Use oaicopilot.groups instead."
 				},
 				"oaicopilot.models": {
 					"type": "array",
