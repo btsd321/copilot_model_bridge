@@ -7,6 +7,7 @@ import { AnthropicApi } from "../anthropic/anthropicApi";
 import { OllamaApi } from "../ollama/ollamaApi";
 import { normalizeUserModels, loadGroups, hasGroupConfig, resolvedToHFModelItem } from "../utils";
 import type { HFModelItem, ResolvedModel } from "../types";
+import { logger } from "../log/logger";
 
 /**
  * Git commit message generator module
@@ -79,7 +80,7 @@ async function orchestrateWorkspaceCommitMsgGeneration(secrets: vscode.SecretSto
 			try {
 				await generateCommitMsgForRepository(secrets, repo);
 			} catch (error) {
-				console.error(`Failed to generate commit message for ${repo.rootUri.fsPath}:`, error);
+				logger.error(`Failed to generate commit message for ${repo.rootUri.fsPath}:`, error);
 			}
 		}
 	} else {

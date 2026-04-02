@@ -6,6 +6,7 @@ import { normalizeUserModels, loadGroups, buildGroupModelId, hasGroupConfig } fr
 import { VersionManager } from "./versionManager";
 import { fetchGeminiModels } from "./gemini/geminiApi";
 import { fetchOllamaModels } from "./ollama/ollamaApi";
+import { logger } from "./log/logger";
 
 const DEFAULT_CONTEXT_LENGTH = 128000;
 const DEFAULT_MAX_TOKENS = 4096;
@@ -219,12 +220,12 @@ export async function fetchModels(
 			try {
 				text = await resp.text();
 			} catch (error) {
-				console.error("[OAI Compatible Model Provider] Failed to read response text", error);
+				logger.error("Failed to read response text", error);
 			}
 			const err = new Error(
 				`Failed to fetch OAI Compatible models: ${resp.status} ${resp.statusText}${text ? `\n${text}` : ""}`
 			);
-			console.error("[OAI Compatible Model Provider] Failed to fetch OAI Compatible models", err);
+			logger.error("Failed to fetch models", err);
 			throw err;
 		}
 		const parsed = (await resp.json()) as HFModelsResponse;
@@ -235,7 +236,7 @@ export async function fetchModels(
 		const models = await modelsList;
 		return { models };
 	} catch (err) {
-		console.error("[OAI Compatible Model Provider] Failed to fetch OAI Compatible models", err);
+		logger.error("Failed to fetch models", err);
 		throw err;
 	}
 }

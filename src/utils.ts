@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { HFModelItem, RetryConfig, ModelGroup, GroupModelConfig, ResolvedModel } from "./types";
 import { resolveToHFModelItem } from "./types";
 import { OpenAIFunctionToolDef } from "./openai/openaiTypes";
+import { logger } from "./log/logger";
 
 const RETRY_MAX_ATTEMPTS = 3;
 const RETRY_INTERVAL_MS = 1000;
@@ -230,7 +231,7 @@ export async function migrateOldConfig(): Promise<boolean> {
 
 	// Write new groups config
 	await config.update("oaicopilot.groups", groups, vscode.ConfigurationTarget.Global);
-	console.log(`[OAICopilot] Migrated ${oldModels.length} models into ${groups.length} groups.`);
+	logger.info(`Migrated ${oldModels.length} models into ${groups.length} groups.`);
 	return true;
 }
 
@@ -310,7 +311,7 @@ export function convertToolsToOpenAI(options?: vscode.ProvideLanguageModelChatRe
 	let tool_choice: "auto" | { type: "function"; function: { name: string } } = "auto";
 	if (options?.toolMode === vscode.LanguageModelChatToolMode.Required) {
 		if (tools.length !== 1) {
-			console.error("[OAI Compatible Model Provider] ToolMode.Required but multiple tools:", tools.length);
+			logger.error("ToolMode.Required but multiple tools:", tools.length);
 			throw new Error("LanguageModelChatToolMode.Required is not supported with more than one tool");
 		}
 		tool_choice = { type: "function", function: { name: tools[0].name } };
@@ -494,8 +495,8 @@ export async function executeWithRetry<T>(fn: () => Promise<T>, retryConfig: Ret
 				throw lastError;
 			}
 
-			console.error(
-				`[OAI Compatible Model Provider] Retryable error detected, retrying in ${intervalMs}ms (attempt ${attempt + 1}/${maxAttempts}). Error:`,
+			logger.warn(
+				`Retryable error detected, retrying in ${intervalMs}ms (attempt ${attempt + 1}/${maxAttempts}).`,
 				lastError instanceof Error ? { name: lastError.name, message: lastError.message } : String(lastError)
 			);
 

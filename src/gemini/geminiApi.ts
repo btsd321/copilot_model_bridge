@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { logger } from "../log/logger";
 import {
 	CancellationToken,
 	LanguageModelChatRequestMessage,
@@ -1037,7 +1038,7 @@ export async function fetchGeminiModels(
 			try {
 				errorText = await resp.text();
 			} catch (error) {
-				console.error("[OAI Compatible Model Provider] Failed to read response text", error);
+				logger.error("Failed to read response text (Gemini models list)", error);
 			}
 			throw new Error(
 				`Gemini API error: [${resp.status}] ${resp.statusText}${errorText ? `\n${errorText}` : ""}\nURL: ${url.toString()}`

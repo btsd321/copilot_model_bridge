@@ -26,6 +26,7 @@ import { AnthropicRequestBody } from "./anthropic/anthropicTypes";
 import { GeminiApi, buildGeminiGenerateContentUrl, type GeminiToolCallMeta } from "./gemini/geminiApi";
 import type { GeminiGenerateContentRequest } from "./gemini/geminiTypes";
 import { CommonApi } from "./commonApi";
+import { logger } from "./log/logger";
 
 /**
  * VS Code Chat provider backed by Hugging Face Inference Providers.
@@ -98,7 +99,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 				try {
 					progress.report(part);
 				} catch (e) {
-					console.error("[OAI Compatible Model Provider] Progress.report failed", {
+					logger.error("Progress.report failed", {
 						modelId: model.id,
 						error: e instanceof Error ? { name: e.name, message: e.message } : String(e),
 					});
@@ -184,7 +185,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 			// prepare headers with custom headers if specified
 			const requestHeaders = CommonApi.prepareHeaders(modelApiKey, apiMode, um?.headers);
 
-			// console.debug("[OAI Compatible Model Provider] messages:", JSON.stringify(messages));
+				// console.debug("[OAI Compatible Model Provider] messages:", JSON.stringify(messages));
 			if (apiMode === "ollama") {
 				// Ollama native API mode
 				const ollamaApi = new OllamaApi();
@@ -209,7 +210,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 					if (!res.ok) {
 						const errorText = await res.text();
-						console.error("[Ollama Provider] Ollama API error response", errorText);
+						logger.error("Ollama API error response", errorText);
 						throw new Error(
 							`Ollama API error: [${res.status}] ${res.statusText}${errorText ? `\n${errorText}` : ""}\nURL: ${url}`
 						);
@@ -252,7 +253,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 					if (!res.ok) {
 						const errorText = await res.text();
-						console.error("[Anthropic Provider] Anthropic API error response", errorText);
+						logger.error("Anthropic API error response", errorText);
 						throw new Error(
 							`Anthropic API error: [${res.status}] ${res.statusText}${errorText ? `\n${errorText}` : ""}\nURL: ${url}`
 						);
@@ -416,7 +417,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 					if (!res.ok) {
 						const errorText = await res.text();
-						console.error("[Gemini Provider] Gemini API error response", errorText);
+						logger.error("Gemini API error response", errorText);
 						throw new Error(
 							`Gemini API error: [${res.status}] ${res.statusText}${errorText ? `\n${errorText}` : ""}\nURL: ${url}`
 						);
@@ -455,7 +456,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 					if (!res.ok) {
 						const errorText = await res.text();
-						console.error("[OAI Compatible Model Provider] OAI Compatible API error response", errorText);
+						logger.error("OpenAI API error response", errorText);
 						throw new Error(
 							`OAI Compatible API error: [${res.status}] ${res.statusText}${errorText ? `\n${errorText}` : ""}\nURL: ${url}`
 						);
@@ -470,7 +471,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 				await openaiApi.processStreamingResponse(response.body, trackingProgress, token);
 			}
 		} catch (err) {
-			console.error("[OAI Compatible Model Provider] Chat request failed", {
+			logger.error("Chat request failed", {
 				modelId: model.id,
 				messageCount: messages.length,
 				error: err instanceof Error ? { name: err.name, message: err.message } : String(err),

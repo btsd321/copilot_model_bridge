@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { logger } from "../log/logger";
 import {
 	CancellationToken,
 	LanguageModelChatRequestMessage,
@@ -405,7 +406,7 @@ export class OpenaiResponsesApi extends CommonApi<ResponsesInputItem, Record<str
 		switch (eventType) {
 			case "error": {
 				const errorText = JSON.stringify(event);
-				console.error("[OAI Compatible Model Provider] Responses API streaming process error:", errorText);
+				logger.error("Responses API streaming error:", errorText);
 				return;
 			}
 

@@ -21,6 +21,7 @@ import type {
 import { isImageMimeType, isToolResultPart, collectToolResultText, convertToolsToOpenAI, mapRole } from "../utils";
 
 import { CommonApi } from "../commonApi";
+import { logger } from "../log/logger";
 
 export class AnthropicApi extends CommonApi<AnthropicMessage, AnthropicRequestBody> {
 	constructor() {
@@ -130,7 +131,7 @@ export class AnthropicApi extends CommonApi<AnthropicMessage, AnthropicRequestBo
 				}
 			} else if (toolResults.length > 0) {
 				// If tool results appear in non-user messages, log warning
-				console.warn("[Anthropic Provider] Tool results found in non-user message, ignoring");
+				logger.warn("Tool results found in non-user message, ignoring");
 			}
 
 			// Only add message if we have content blocks
@@ -259,7 +260,7 @@ export class AnthropicApi extends CommonApi<AnthropicMessage, AnthropicRequestBo
 
 						await this.processAnthropicChunk(chunk, progress);
 					} catch (e) {
-						console.error("[Anthropic Provider] Failed to parse SSE chunk:", e, "data:", data);
+						logger.error("Failed to parse SSE chunk:", e, "data:", data);
 					}
 				}
 			}
@@ -288,7 +289,7 @@ export class AnthropicApi extends CommonApi<AnthropicMessage, AnthropicRequestBo
 		if (chunk.type === "error") {
 			const errorType = chunk.error?.type || "unknown_error";
 			const errorMessage = chunk.error?.message || "Anthropic API streaming error";
-			console.error(`[Anthropic Provider] Streaming error: ${errorType} - ${errorMessage}`);
+			logger.error(`Streaming error: ${errorType} - ${errorMessage}`);
 			// We could throw here, but for now just log and continue
 			return;
 		}
@@ -443,10 +444,10 @@ export class AnthropicApi extends CommonApi<AnthropicMessage, AnthropicRequestBo
 						if (chunk.type === "error") {
 							const errorType = chunk.error?.type || "unknown_error";
 							const errorMessage = chunk.error?.message || "Anthropic API streaming error";
-							console.error(`[Anthropic Provider] Streaming error: ${errorType} - ${errorMessage}`);
+							logger.error(`Streaming error: ${errorType} - ${errorMessage}`);
 						}
 					} catch (e) {
-						console.error("[Anthropic Provider] Failed to parse SSE chunk:", e, "data:", data);
+						logger.error("Failed to parse SSE chunk:", e, "data:", data);
 					}
 				}
 			}

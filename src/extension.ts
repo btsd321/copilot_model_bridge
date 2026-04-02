@@ -6,14 +6,18 @@ import { ConfigViewPanel } from "./views/configView";
 import { normalizeUserModels, loadGroups, migrateOldConfig, hasGroupConfig } from "./utils";
 import { abortCommitGeneration, generateCommitMsg } from "./gitCommit/commitMessageGenerator";
 import { TokenizerManager } from "./tokenizer/tokenizerManager";
+import { logger } from "./log/logger";
 
 export function activate(context: vscode.ExtensionContext) {
+	// Initialize logger output channel
+	logger.init(vscode.window.createOutputChannel("OAICopilot"));
+
 	// Initialize TokenizerManager with extension path
 	TokenizerManager.initialize(context.extensionPath);
 
 	// Auto-migrate old flat config to groups on first activation
 	migrateOldConfig().catch((err) =>
-		console.error("[OAICopilot] Migration failed:", err)
+		logger.error("Migration failed:", err)
 	);
 
 	const tokenCountStatusBarItem: vscode.StatusBarItem = initStatusBar(context);

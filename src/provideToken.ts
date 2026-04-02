@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { LanguageModelChatRequestMessage, LanguageModelChatTool } from "vscode";
 import { tokenizerManager } from "./tokenizer/tokenizerManager";
 import { getImageDimensions } from "./tokenizer/imageUtils";
+import { logger } from "./log/logger";
 import { createDataUrl } from "./utils";
 
 /*
@@ -51,7 +52,7 @@ export async function countMessageTokens(
 					totalTokens += await textTokenLength(thinkingText);
 				}
 			} else {
-				console.warn(`Unknown part type: ${JSON.stringify(part)}`);
+				logger.warn(`Unknown part type: ${JSON.stringify(part)}`);
 			}
 		}
 		return totalTokens;

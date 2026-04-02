@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { logger } from "../log/logger";
 import {
 	CancellationToken,
 	LanguageModelChatRequestMessage,
@@ -388,7 +389,7 @@ export class OpenaiApi extends CommonApi<OpenAIChatMessage, Record<string, unkno
 				}
 			}
 		} catch (e) {
-			console.error("[OAI Compatible Model Provider] Failed to process thinking/reasoning_details:", e);
+			logger.error("Failed to process thinking/reasoning_details:", e);
 		}
 
 		if (deltaObj?.content) {

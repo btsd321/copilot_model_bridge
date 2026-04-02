@@ -3,6 +3,7 @@ import type { HFApiMode, HFModelItem } from "../types";
 import { normalizeUserModels, parseModelId } from "../utils";
 import { fetchModels } from "../provideModel";
 import { VersionManager } from "../versionManager";
+import { logger } from "../log/logger";
 
 interface InitPayload {
 	baseUrl: string;
@@ -129,7 +130,7 @@ export class ConfigViewPanel {
 		this.panel.webview.onDidReceiveMessage(
 			async (message) => {
 				this.handleMessage(message).catch((err) => {
-					console.error("[oaicopilot] handleMessage failed", err);
+				logger.error("handleMessage failed", err);
 					vscode.window.showErrorMessage(
 						err instanceof Error
 							? err.message
@@ -184,7 +185,7 @@ export class ConfigViewPanel {
 					const { models } = await fetchModels(message.baseUrl, message.apiKey, message.apiMode, message.headers);
 					this.panel.webview.postMessage({ type: "modelsFetched", models });
 				} catch (err) {
-					console.error("[oaicopilot] fetchModels failed", err);
+					logger.error("fetchModels failed", err);
 					const errorMessage = err instanceof Error ? err.message : String(err);
 					this.panel.webview.postMessage({ type: "modelsFetchError", error: errorMessage });
 				}
