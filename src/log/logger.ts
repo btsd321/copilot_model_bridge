@@ -1,9 +1,9 @@
 /**
- * logger.ts — Singleton logger for OAICopilot.
+ * logger.ts — Singleton logger for cmb.
  *
  * Initialised once in extension.ts `activate()`:
  *   import { logger } from "./log/logger";
- *   logger.init(vscode.window.createOutputChannel("OAICopilot"));
+ *   logger.init(vscode.window.createOutputChannel("CopilotModelBridge"));
  *
  * Usage anywhere else:
  *   import { logger } from "../log/logger";

@@ -10,7 +10,7 @@ import { logger } from "./log/logger";
 
 export function activate(context: vscode.ExtensionContext) {
 	// Initialize logger output channel
-	logger.init(vscode.window.createOutputChannel("OAICopilot"));
+	logger.init(vscode.window.createOutputChannel("Copilot Model Bridge"));
 
 	// Initialize TokenizerManager with extension path
 	TokenizerManager.initialize(context.extensionPath);
@@ -23,12 +23,12 @@ export function activate(context: vscode.ExtensionContext) {
 	const tokenCountStatusBarItem: vscode.StatusBarItem = initStatusBar(context);
 	const provider = new HuggingFaceChatModelProvider(context.secrets, tokenCountStatusBarItem);
 	// Register the Hugging Face provider under the vendor id used in package.json
-	vscode.lm.registerLanguageModelChatProvider("oaicopilot", provider);
+	vscode.lm.registerLanguageModelChatProvider("cmb", provider);
 
 	// Management command to configure API key
 	context.subscriptions.push(
-		vscode.commands.registerCommand("oaicopilot.setApikey", async () => {
-			const existing = await context.secrets.get("oaicopilot.apiKey");
+		vscode.commands.registerCommand("cmb.setApikey", async () => {
+			const existing = await context.secrets.get("cmb.apiKey");
 			const apiKey = await vscode.window.showInputBox({
 				title: "OAI Compatible Provider API Key",
 				prompt: existing ? "Update your OAI Compatible API key" : "Enter your OAI Compatible API key",
@@ -40,18 +40,18 @@ export function activate(context: vscode.ExtensionContext) {
 				return; // user canceled
 			}
 			if (!apiKey.trim()) {
-				await context.secrets.delete("oaicopilot.apiKey");
+				await context.secrets.delete("cmb.apiKey");
 				vscode.window.showInformationMessage("OAI Compatible API key cleared.");
 				return;
 			}
-			await context.secrets.store("oaicopilot.apiKey", apiKey.trim());
+			await context.secrets.store("cmb.apiKey", apiKey.trim());
 			vscode.window.showInformationMessage("OAI Compatible API key saved.");
 		})
 	);
 
 	// Management command to configure provider-specific API keys (supports both groups and legacy)
 	context.subscriptions.push(
-		vscode.commands.registerCommand("oaicopilot.setProviderApikey", async () => {
+		vscode.commands.registerCommand("cmb.setProviderApikey", async () => {
 			// Collect provider names from groups and/or legacy models
 			const providerNames: string[] = [];
 
@@ -65,7 +65,7 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			} else {
 				const config = vscode.workspace.getConfiguration();
-				const userModels = normalizeUserModels(config.get<HFModelItem[]>("oaicopilot.models", []));
+				const userModels = normalizeUserModels(config.get<HFModelItem[]>("cmb.models", []));
 				for (const m of userModels) {
 					const name = m.owned_by?.toLowerCase().trim();
 					if (name && !providerNames.includes(name)) {
@@ -77,7 +77,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			if (providerNames.length === 0) {
 				vscode.window.showErrorMessage(
-					"No providers/groups found. Please configure oaicopilot.groups or oaicopilot.models first."
+					"No providers/groups found. Please configure cmb.groups or cmb.models first."
 				);
 				return;
 			}
@@ -90,7 +90,7 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			const providerKey = `oaicopilot.apiKey.${selectedProvider}`;
+			const providerKey = `cmb.apiKey.${selectedProvider}`;
 			const existing = await context.secrets.get(providerKey);
 
 			const apiKey = await vscode.window.showInputBox({
@@ -115,14 +115,14 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand("oaicopilot.openConfig", async () => {
+		vscode.commands.registerCommand("cmb.openConfig", async () => {
 			ConfigViewPanel.openPanel(context.extensionUri, context.secrets);
 		})
 	);
 
 	// Multi-step wizard: Add a new model group
 	context.subscriptions.push(
-		vscode.commands.registerCommand("oaicopilot.addGroup", async () => {
+		vscode.commands.registerCommand("cmb.addGroup", async () => {
 			// Step 1: Group name
 			const groupName = await vscode.window.showInputBox({
 				title: "Add Model Group (1/4): Group Name",
@@ -164,7 +164,7 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 			if (apiKey === undefined) { return; }
 			if (apiKey.trim()) {
-				const keyName = `oaicopilot.apiKey.${groupName.trim().toLowerCase()}`;
+				const keyName = `cmb.apiKey.${groupName.trim().toLowerCase()}`;
 				await context.secrets.store(keyName, apiKey.trim());
 			}
 
@@ -191,7 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Save the new group
 			const config = vscode.workspace.getConfiguration();
-			const existingGroups = config.get<unknown[]>("oaicopilot.groups", []);
+			const existingGroups = config.get<unknown[]>("cmb.groups", []);
 			const groups = Array.isArray(existingGroups) ? [...existingGroups] : [];
 			groups.push({
 				name: groupName.trim(),
@@ -199,7 +199,7 @@ export function activate(context: vscode.ExtensionContext) {
 				baseUrl: baseUrl.trim(),
 				models: [],
 			});
-			await config.update("oaicopilot.groups", groups, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.groups", groups, vscode.ConfigurationTarget.Global);
 			vscode.window.showInformationMessage(
 				`Group "${groupName.trim()}" added. Open settings to add models to this group.`
 			);
@@ -208,7 +208,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Add a model to an existing group
 	context.subscriptions.push(
-		vscode.commands.registerCommand("oaicopilot.addModelToGroup", async () => {
+		vscode.commands.registerCommand("cmb.addModelToGroup", async () => {
 			const groups = loadGroups();
 			if (groups.length === 0) {
 				const createNow = await vscode.window.showInformationMessage(
@@ -216,7 +216,7 @@ export function activate(context: vscode.ExtensionContext) {
 					"Add Group"
 				);
 				if (createNow === "Add Group") {
-					vscode.commands.executeCommand("oaicopilot.addGroup");
+					vscode.commands.executeCommand("cmb.addGroup");
 				}
 				return;
 			}
@@ -284,7 +284,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Write to config
 			const config = vscode.workspace.getConfiguration();
-			const rawGroups = config.get<unknown[]>("oaicopilot.groups", []) as Record<string, unknown>[];
+			const rawGroups = config.get<unknown[]>("cmb.groups", []) as Record<string, unknown>[];
 			const updated = rawGroups.map((g) => {
 				if ((g as { name?: string }).name === selectedGroup.label) {
 					const models = Array.isArray(g.models) ? [...g.models, newModel] : [newModel];
@@ -292,7 +292,7 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				return g;
 			});
-			await config.update("oaicopilot.groups", updated, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.groups", updated, vscode.ConfigurationTarget.Global);
 			vscode.window.showInformationMessage(
 				`Model "${newModel.id}" added to group "${selectedGroup.label}".`
 			);
@@ -301,10 +301,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register the generateGitCommitMessage command handler
 	context.subscriptions.push(
-		vscode.commands.registerCommand("oaicopilot.generateGitCommitMessage", async (scm) => {
+		vscode.commands.registerCommand("cmb.generateGitCommitMessage", async (scm) => {
 			generateCommitMsg(context.secrets, scm);
 		}),
-		vscode.commands.registerCommand("oaicopilot.abortGitCommitMessage", () => {
+		vscode.commands.registerCommand("cmb.abortGitCommitMessage", () => {
 			abortCommitGeneration();
 		})
 	);

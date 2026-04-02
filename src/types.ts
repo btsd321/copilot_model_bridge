@@ -91,7 +91,7 @@ export interface HFModelItem {
 
 	/**
 	 * Model-specific delay in milliseconds between consecutive requests.
-	 * If not specified, falls back to global `oaicopilot.delay` configuration.
+	 * If not specified, falls back to global `cmb.delay` configuration.
 	 */
 	delay?: number;
 }

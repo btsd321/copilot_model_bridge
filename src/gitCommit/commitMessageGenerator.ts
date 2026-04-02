@@ -146,11 +146,11 @@ async function generateCommitMsgForRepository(secrets: vscode.SecretStorage, rep
 
 async function performCommitMsgGeneration(secrets: vscode.SecretStorage, gitDiff: string, inputBox: any) {
 	try {
-		vscode.commands.executeCommand("setContext", "oaicopilot.isGeneratingCommit", true);
+		vscode.commands.executeCommand("setContext", "cmb.isGeneratingCommit", true);
 		const config = vscode.workspace.getConfiguration();
 
 		// Get custom prompts or use defaults
-		const customSystemPrompt = config.get<string>("oaicopilot.commitMessagePrompt", "");
+		const customSystemPrompt = config.get<string>("cmb.commitMessagePrompt", "");
 		const PROMPT = {
 			system: customSystemPrompt || DEFAULT_PROMPT.system,
 			user: DEFAULT_PROMPT.user,
@@ -190,7 +190,7 @@ async function performCommitMsgGeneration(secrets: vscode.SecretStorage, gitDiff
 			}
 			selectedModel = resolvedToHFModelItem(found);
 		} else {
-			const userModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+			const userModels = normalizeUserModels(config.get<unknown>("cmb.models", []));
 			const commitModels = userModels.filter((model: HFModelItem) => model.useForCommitGeneration === true);
 			if (commitModels.length === 0) {
 				throw new Error(
@@ -207,13 +207,13 @@ async function performCommitMsgGeneration(secrets: vscode.SecretStorage, gitDiff
 		}
 
 		// Get base URL for the model
-		const baseUrl = selectedModel.baseUrl || config.get<string>("oaicopilot.baseUrl", "");
+		const baseUrl = selectedModel.baseUrl || config.get<string>("cmb.baseUrl", "");
 		if (!baseUrl || !baseUrl.startsWith("http")) {
 			throw new Error(`Invalid base URL configuration.`);
 		}
 
 		// Get commit language configuration
-		const commitLanguage = config.get<string>("oaicopilot.commitLanguage", "English");
+		const commitLanguage = config.get<string>("cmb.commitLanguage", "English");
 
 		// Create a system prompt with language instruction
 		const systemPrompt = PROMPT.system + ` Generate commit message in ${commitLanguage}.`;
@@ -255,13 +255,13 @@ async function performCommitMsgGeneration(secrets: vscode.SecretStorage, gitDiff
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		vscode.window.showErrorMessage(`Failed to generate commit message: ${errorMessage}`);
 	} finally {
-		vscode.commands.executeCommand("setContext", "oaicopilot.isGeneratingCommit", false);
+		vscode.commands.executeCommand("setContext", "cmb.isGeneratingCommit", false);
 	}
 }
 
 export function abortCommitGeneration() {
 	commitGenerationAbortController?.abort();
-	vscode.commands.executeCommand("setContext", "oaicopilot.isGeneratingCommit", false);
+	vscode.commands.executeCommand("setContext", "cmb.isGeneratingCommit", false);
 }
 
 /**
@@ -285,7 +285,7 @@ async function ensureApiKey(secrets: vscode.SecretStorage, provider: string): Pr
 	let apiKey: string | undefined;
 	if (provider && provider.trim() !== "") {
 		const normalizedProvider = provider.trim().toLowerCase();
-		const providerKey = `oaicopilot.apiKey.${normalizedProvider}`;
+		const providerKey = `cmb.apiKey.${normalizedProvider}`;
 		apiKey = await secrets.get(providerKey);
 	}
 

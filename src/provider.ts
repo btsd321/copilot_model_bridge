@@ -15,7 +15,7 @@ import type { OllamaRequestBody } from "./ollama/ollamaTypes";
 
 import { parseModelId, createRetryConfig, executeWithRetry, normalizeUserModels, findModelInGroups, resolvedToHFModelItem, parseGroupModelId } from "./utils";
 
-import { prepareLanguageModelChatInformation } from "./provideModel";
+import { prepareLanguageModelChatInformation, NO_CONFIG_MODEL_ID } from "./provideModel";
 import { countMessageTokens } from "./provideToken";
 import { updateContextStatusBar } from "./statusBar";
 import { OllamaApi } from "./ollama/ollamaApi";
@@ -38,7 +38,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 	private readonly _geminiToolCallMetaByCallId = new Map<string, GeminiToolCallMeta>();
 	private readonly _openaiResponsesPreviousResponseIdUnsupportedBaseUrls = new Set<string>();
 
-	static readonly OPENAI_RESPONSES_STATEFUL_MARKER_MIME = "application/vnd.oaicopilot.stateful-marker";
+	static readonly OPENAI_RESPONSES_STATEFUL_MARKER_MIME = "application/vnd.cmb.stateful-marker";
 
 	/**
 	 * Create a provider using the given secret storage for the API key.
@@ -107,6 +107,13 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 			},
 		};
 		try {
+			// Handle placeholder model when no config exists
+			if (model.id === NO_CONFIG_MODEL_ID) {
+				progress.report(new vscode.LanguageModelTextPart("尚未配置任何模型。请先通过命令面板执行 **CopilotModelBridge: Open Configuration UI** 来添加模型组。"));
+				vscode.commands.executeCommand("cmb.openConfig");
+				return;
+			}
+
 			// --- Model resolution: prefer group-based, fallback to legacy flat config ---
 			let um: HFModelItem | undefined;
 			let parsedModelId: { baseId: string; configId?: string };
@@ -119,7 +126,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 			} else {
 				// Legacy flat config path
 				const config = vscode.workspace.getConfiguration();
-				const userModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+				const userModels = normalizeUserModels(config.get<unknown>("cmb.models", []));
 
 				parsedModelId = parseModelId(model.id);
 
@@ -145,7 +152,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 			// Apply delay between consecutive requests
 			const modelDelay = um?.delay;
-			const globalDelay = vscode.workspace.getConfiguration().get<number>("oaicopilot.delay", 0);
+			const globalDelay = vscode.workspace.getConfiguration().get<number>("cmb.delay", 0);
 			const delayMs = modelDelay !== undefined ? modelDelay : globalDelay;
 
 			if (delayMs > 0 && this._lastRequestTime !== null) {
@@ -171,7 +178,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 			}
 
 			// send chat request
-			const BASE_URL = um?.baseUrl || vscode.workspace.getConfiguration().get<string>("oaicopilot.baseUrl", "");
+			const BASE_URL = um?.baseUrl || vscode.workspace.getConfiguration().get<string>("cmb.baseUrl", "");
 			if (!BASE_URL || !BASE_URL.startsWith("http")) {
 				throw new Error(`Invalid base URL configuration.`);
 			}
@@ -493,7 +500,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 		let apiKey: string | undefined;
 		if (provider && provider.trim() !== "") {
 			const normalizedProvider = provider.trim().toLowerCase();
-			const providerKey = `oaicopilot.apiKey.${normalizedProvider}`;
+			const providerKey = `cmb.apiKey.${normalizedProvider}`;
 			apiKey = await this.secrets.get(providerKey);
 
 			if (!apiKey && !useGenericKey) {
@@ -512,7 +519,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 
 		// Fall back to generic API key
 		if (!apiKey) {
-			apiKey = await this.secrets.get("oaicopilot.apiKey");
+			apiKey = await this.secrets.get("cmb.apiKey");
 		}
 
 		if (!apiKey && useGenericKey) {
@@ -524,7 +531,7 @@ export class HuggingFaceChatModelProvider implements LanguageModelChatProvider {
 			});
 			if (entered && entered.trim()) {
 				apiKey = entered.trim();
-				await this.secrets.store("oaicopilot.apiKey", apiKey);
+				await this.secrets.store("cmb.apiKey", apiKey);
 			}
 		}
 		return apiKey;

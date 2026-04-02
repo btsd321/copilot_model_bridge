@@ -105,8 +105,8 @@ export class ConfigViewPanel {
 		}
 
 		const panel = vscode.window.createWebviewPanel(
-			"oaicopilot.config",
-			"OAICopilot Configuration",
+			"cmb.config",
+			"Copilot Model Bridge",
 			column || vscode.ViewColumn.One,
 			{
 				enableScripts: true,
@@ -245,22 +245,22 @@ export class ConfigViewPanel {
 
 	private async sendInit() {
 		const config = vscode.workspace.getConfiguration();
-		const baseUrl = config.get<string>("oaicopilot.baseUrl", "https://api.openai.com/v1");
-		const models = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+		const baseUrl = config.get<string>("cmb.baseUrl", "https://api.openai.com/v1");
+		const models = normalizeUserModels(config.get<unknown>("cmb.models", []));
 
-		const apiKey = (await this.secrets.get("oaicopilot.apiKey")) ?? "";
+		const apiKey = (await this.secrets.get("cmb.apiKey")) ?? "";
 		const providerKeys: Record<string, string> = {};
 		const providers = Array.from(new Set(models.map((m) => m.owned_by).filter(Boolean)));
 		for (const provider of providers) {
 			const normalized = provider.toLowerCase();
-			let key = await this.secrets.get(`oaicopilot.apiKey.${normalized}`);
+			let key = await this.secrets.get(`cmb.apiKey.${normalized}`);
 			if (!key && normalized !== provider) {
 				// Backward compat: previous versions stored provider keys with original casing.
-				const legacy = await this.secrets.get(`oaicopilot.apiKey.${provider}`);
+				const legacy = await this.secrets.get(`cmb.apiKey.${provider}`);
 				if (legacy) {
 					key = legacy;
-					await this.secrets.store(`oaicopilot.apiKey.${normalized}`, legacy);
-					await this.secrets.delete(`oaicopilot.apiKey.${provider}`);
+					await this.secrets.store(`cmb.apiKey.${normalized}`, legacy);
+					await this.secrets.delete(`cmb.apiKey.${provider}`);
 				}
 			}
 			if (key) {
@@ -268,13 +268,13 @@ export class ConfigViewPanel {
 			}
 		}
 
-		const delay = config.get<number>("oaicopilot.delay", 0);
+		const delay = config.get<number>("cmb.delay", 0);
 		const retry = config.get<{
 			enabled?: boolean;
 			max_attempts?: number;
 			interval_ms?: number;
 			status_codes?: number[];
-		}>("oaicopilot.retry", {
+		}>("cmb.retry", {
 			enabled: true,
 			max_attempts: 3,
 			interval_ms: 1000,
@@ -282,8 +282,8 @@ export class ConfigViewPanel {
 
 		const foundModel = models.find((model) => model.useForCommitGeneration === true);
 		const commitModel = foundModel ? `${foundModel.id}${foundModel.configId ? "::" + foundModel.configId : ""}` : "";
-		const commitLanguage = config.get<string>("oaicopilot.commitLanguage", "English");
-		const readFileLines = config.get<number>("oaicopilot.readFileLines", 0);
+		const commitLanguage = config.get<string>("cmb.commitLanguage", "English");
+		const readFileLines = config.get<number>("cmb.readFileLines", 0);
 		const payload: InitPayload = {
 			baseUrl,
 			apiKey,
@@ -310,20 +310,20 @@ export class ConfigViewPanel {
 		const baseUrl = rawBaseUrl.trim();
 		const apiKey = rawApiKey.trim();
 		const config = vscode.workspace.getConfiguration();
-		await config.update("oaicopilot.baseUrl", baseUrl, vscode.ConfigurationTarget.Global);
-		await config.update("oaicopilot.delay", delay, vscode.ConfigurationTarget.Global);
-		await config.update("oaicopilot.readFileLines", readFileLines, vscode.ConfigurationTarget.Global);
-		await config.update("oaicopilot.retry", retry, vscode.ConfigurationTarget.Global);
-		await config.update("oaicopilot.commitLanguage", commitLanguage, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.baseUrl", baseUrl, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.delay", delay, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.readFileLines", readFileLines, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.retry", retry, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.commitLanguage", commitLanguage, vscode.ConfigurationTarget.Global);
 		if (apiKey) {
-			await this.secrets.store("oaicopilot.apiKey", apiKey);
+			await this.secrets.store("cmb.apiKey", apiKey);
 		} else {
-			await this.secrets.delete("oaicopilot.apiKey");
+			await this.secrets.delete("cmb.apiKey");
 		}
 
 		// Update models to set useForCommitGeneration based on selected commitModel
 		if (commitModel) {
-			const models = config.get<HFModelItem[]>("oaicopilot.models", []);
+			const models = config.get<HFModelItem[]>("cmb.models", []);
 			const updatedModels = models.map((model) => {
 				const fullModelId = `${model.id}${model.configId ? "::" + model.configId : ""}`;
 				if (fullModelId === commitModel) {
@@ -333,7 +333,7 @@ export class ConfigViewPanel {
 					return rest;
 				}
 			});
-			await config.update("oaicopilot.models", updatedModels, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.models", updatedModels, vscode.ConfigurationTarget.Global);
 		}
 
 		vscode.window.showInformationMessage(
@@ -385,15 +385,15 @@ export class ConfigViewPanel {
 		const normalizedProvider = trimmedProvider.toLowerCase();
 		// Save API key for the provider
 		if (apiKey) {
-			await this.secrets.store(`oaicopilot.apiKey.${normalizedProvider}`, apiKey);
+			await this.secrets.store(`cmb.apiKey.${normalizedProvider}`, apiKey);
 			if (trimmedProvider !== normalizedProvider) {
-				await this.secrets.delete(`oaicopilot.apiKey.${trimmedProvider}`);
+				await this.secrets.delete(`cmb.apiKey.${trimmedProvider}`);
 			}
 		}
 
 		// Save provider configuration to the model list
 		const config = vscode.workspace.getConfiguration();
-		const models = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+		const models = normalizeUserModels(config.get<unknown>("cmb.models", []));
 
 		// If the provider doesn't have models yet, add a default model
 		const hasProviderModels = models.some((model) => model.owned_by === trimmedProvider);
@@ -408,7 +408,7 @@ export class ConfigViewPanel {
 			models.push(defaultModel);
 		}
 
-		await config.update("oaicopilot.models", models, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.models", models, vscode.ConfigurationTarget.Global);
 		vscode.window.showInformationMessage(`Provider ${provider} has been added.`);
 		// Send refresh signal to frontend
 		await this.sendInit();
@@ -429,20 +429,20 @@ export class ConfigViewPanel {
 		const normalizedProvider = trimmedProvider.toLowerCase();
 		// Update provider API key
 		if (apiKey) {
-			await this.secrets.store(`oaicopilot.apiKey.${normalizedProvider}`, apiKey);
+			await this.secrets.store(`cmb.apiKey.${normalizedProvider}`, apiKey);
 			if (trimmedProvider !== normalizedProvider) {
-				await this.secrets.delete(`oaicopilot.apiKey.${trimmedProvider}`);
+				await this.secrets.delete(`cmb.apiKey.${trimmedProvider}`);
 			}
 		} else {
-			await this.secrets.delete(`oaicopilot.apiKey.${normalizedProvider}`);
+			await this.secrets.delete(`cmb.apiKey.${normalizedProvider}`);
 			if (trimmedProvider !== normalizedProvider) {
-				await this.secrets.delete(`oaicopilot.apiKey.${trimmedProvider}`);
+				await this.secrets.delete(`cmb.apiKey.${trimmedProvider}`);
 			}
 		}
 
 		// Update the provider's configuration in the model list
 		const config = vscode.workspace.getConfiguration();
-		const models = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+		const models = normalizeUserModels(config.get<unknown>("cmb.models", []));
 
 		const updatedModels = models.map((model) => {
 			if (model.owned_by === trimmedProvider) {
@@ -457,7 +457,7 @@ export class ConfigViewPanel {
 			return model;
 		});
 
-		await config.update("oaicopilot.models", updatedModels, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.models", updatedModels, vscode.ConfigurationTarget.Global);
 		vscode.window.showInformationMessage(`Provider ${provider} has been updated.`);
 		// Send refresh signal to frontend
 		await this.sendInit();
@@ -471,17 +471,17 @@ export class ConfigViewPanel {
 		}
 		const normalizedProvider = trimmedProvider.toLowerCase();
 		// Delete provider API key
-		await this.secrets.delete(`oaicopilot.apiKey.${normalizedProvider}`);
+		await this.secrets.delete(`cmb.apiKey.${normalizedProvider}`);
 		if (trimmedProvider !== normalizedProvider) {
-			await this.secrets.delete(`oaicopilot.apiKey.${trimmedProvider}`);
+			await this.secrets.delete(`cmb.apiKey.${trimmedProvider}`);
 		}
 
 		// Remove all models of this provider from the model list
 		const config = vscode.workspace.getConfiguration();
-		const models = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+		const models = normalizeUserModels(config.get<unknown>("cmb.models", []));
 		const filteredModels = models.filter((model) => model.owned_by !== trimmedProvider);
 
-		await config.update("oaicopilot.models", filteredModels, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.models", filteredModels, vscode.ConfigurationTarget.Global);
 		vscode.window.showInformationMessage(`Provider ${provider} and all its models have been deleted.`);
 		// Send refresh signal to frontend
 		await this.sendInit();
@@ -489,7 +489,7 @@ export class ConfigViewPanel {
 
 	private async addModel(model: HFModelItem) {
 		const config = vscode.workspace.getConfiguration();
-		const models = config.get<HFModelItem[]>("oaicopilot.models", []);
+		const models = config.get<HFModelItem[]>("cmb.models", []);
 
 		// Check if model with same id and configId already exists
 		const existingIndex = models.findIndex(
@@ -502,7 +502,7 @@ export class ConfigViewPanel {
 		}
 
 		models.push(model);
-		await config.update("oaicopilot.models", models, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.models", models, vscode.ConfigurationTarget.Global);
 		vscode.window.showInformationMessage(
 			`Model ${model.id}${model.configId ? "::" + model.configId : ""} has been added.`
 		);
@@ -512,7 +512,7 @@ export class ConfigViewPanel {
 
 	private async updateModel(model: HFModelItem, originalModelId?: string, originalConfigId?: string) {
 		const config = vscode.workspace.getConfiguration();
-		const models = config.get<HFModelItem[]>("oaicopilot.models", []);
+		const models = config.get<HFModelItem[]>("cmb.models", []);
 
 		// Find the model to update based on original id and configId
 		const updatedModels = models.map((m) => {
@@ -530,7 +530,7 @@ export class ConfigViewPanel {
 			return m;
 		});
 
-		await config.update("oaicopilot.models", updatedModels, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.models", updatedModels, vscode.ConfigurationTarget.Global);
 		vscode.window.showInformationMessage(
 			`Model ${model.id}${model.configId ? "::" + model.configId : ""} has been updated.`
 		);
@@ -540,7 +540,7 @@ export class ConfigViewPanel {
 
 	private async deleteModel(modelId: string) {
 		const config = vscode.workspace.getConfiguration();
-		const models = config.get<HFModelItem[]>("oaicopilot.models", []);
+		const models = config.get<HFModelItem[]>("cmb.models", []);
 		const parsedModelId = parseModelId(modelId);
 
 		const filteredModels = models.filter((model) => {
@@ -551,7 +551,7 @@ export class ConfigViewPanel {
 			);
 		});
 
-		await config.update("oaicopilot.models", filteredModels, vscode.ConfigurationTarget.Global);
+		await config.update("cmb.models", filteredModels, vscode.ConfigurationTarget.Global);
 		vscode.window.showInformationMessage(`Model ${modelId} has been deleted.`);
 		// Send refresh signal to frontend
 		await this.sendInit();
@@ -560,22 +560,22 @@ export class ConfigViewPanel {
 	private async exportConfig() {
 		try {
 			const config = vscode.workspace.getConfiguration();
-			const baseUrl = config.get<string>("oaicopilot.baseUrl", "https://api.openai.com/v1");
-			const apiKey = (await this.secrets.get("oaicopilot.apiKey")) ?? "";
-			const delay = config.get<number>("oaicopilot.delay", 0);
+			const baseUrl = config.get<string>("cmb.baseUrl", "https://api.openai.com/v1");
+			const apiKey = (await this.secrets.get("cmb.apiKey")) ?? "";
+			const delay = config.get<number>("cmb.delay", 0);
 			const retry = config.get<{
 				enabled?: boolean;
 				max_attempts?: number;
 				interval_ms?: number;
 				status_codes?: number[];
-			}>("oaicopilot.retry", {
+			}>("cmb.retry", {
 				enabled: true,
 				max_attempts: 3,
 				interval_ms: 1000,
 			});
-			const commitLanguage = config.get<string>("oaicopilot.commitLanguage", "English");
-			const readFileLines = config.get<number>("oaicopilot.readFileLines", 0);
-			const models = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+			const commitLanguage = config.get<string>("cmb.commitLanguage", "English");
+			const readFileLines = config.get<number>("cmb.readFileLines", 0);
+			const models = normalizeUserModels(config.get<unknown>("cmb.models", []));
 
 			const foundModel = models.find((model) => model.useForCommitGeneration === true);
 			const commitModel = foundModel ? `${foundModel.id}${foundModel.configId ? "::" + foundModel.configId : ""}` : "";
@@ -584,7 +584,7 @@ export class ConfigViewPanel {
 			const providers = Array.from(new Set(models.map((m) => m.owned_by).filter(Boolean)));
 			for (const provider of providers) {
 				const normalized = provider.toLowerCase();
-				const key = await this.secrets.get(`oaicopilot.apiKey.${normalized}`);
+				const key = await this.secrets.get(`cmb.apiKey.${normalized}`);
 				if (key) {
 					providerKeys[provider] = key;
 				}
@@ -605,9 +605,9 @@ export class ConfigViewPanel {
 			};
 
 			const uri = await vscode.window.showSaveDialog({
-				defaultUri: vscode.Uri.file(`oaicopilot-config-${new Date().toISOString().split("T")[0]}.json`),
+				defaultUri: vscode.Uri.file(`cmb-config-${new Date().toISOString().split("T")[0]}.json`),
 				filters: { "JSON Files": ["json"] },
-				title: "Export OAICopilot Configuration",
+				title: "Export Copilot Model Bridge Configuration",
 			});
 
 			if (!uri) {
@@ -632,7 +632,7 @@ export class ConfigViewPanel {
 				canSelectFolders: false,
 				canSelectMany: false,
 				filters: { "JSON Files": ["json"] },
-				title: "Import OAICopilot Configuration",
+				title: "Import Copilot Model Bridge Configuration",
 			});
 
 			if (!uri || uri.length === 0) {
@@ -651,26 +651,26 @@ export class ConfigViewPanel {
 
 			const config = vscode.workspace.getConfiguration();
 
-			await config.update("oaicopilot.baseUrl", importData.baseUrl, vscode.ConfigurationTarget.Global);
-			await config.update("oaicopilot.delay", importData.delay, vscode.ConfigurationTarget.Global);
-			await config.update("oaicopilot.retry", importData.retry, vscode.ConfigurationTarget.Global);
-			await config.update("oaicopilot.readFileLines", importData.readFileLines, vscode.ConfigurationTarget.Global);
-			await config.update("oaicopilot.commitLanguage", importData.commitLanguage, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.baseUrl", importData.baseUrl, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.delay", importData.delay, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.retry", importData.retry, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.readFileLines", importData.readFileLines, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.commitLanguage", importData.commitLanguage, vscode.ConfigurationTarget.Global);
 
 			if (importData.apiKey) {
-				await this.secrets.store("oaicopilot.apiKey", importData.apiKey);
+				await this.secrets.store("cmb.apiKey", importData.apiKey);
 			} else {
-				await this.secrets.delete("oaicopilot.apiKey");
+				await this.secrets.delete("cmb.apiKey");
 			}
 
-			await config.update("oaicopilot.models", importData.models, vscode.ConfigurationTarget.Global);
+			await config.update("cmb.models", importData.models, vscode.ConfigurationTarget.Global);
 
 			for (const [provider, key] of Object.entries(importData.providerKeys)) {
 				const normalized = provider.toLowerCase();
 				if (key) {
-					await this.secrets.store(`oaicopilot.apiKey.${normalized}`, key);
+					await this.secrets.store(`cmb.apiKey.${normalized}`, key);
 				} else {
-					await this.secrets.delete(`oaicopilot.apiKey.${normalized}`);
+					await this.secrets.delete(`cmb.apiKey.${normalized}`);
 				}
 			}
 

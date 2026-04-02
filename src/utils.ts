@@ -95,7 +95,7 @@ export function buildGroupModelId(groupName: string, modelId: string): string {
  */
 export function loadGroups(): ModelGroup[] {
 	const config = vscode.workspace.getConfiguration();
-	const raw = config.get<unknown[]>("oaicopilot.groups", []);
+	const raw = config.get<unknown[]>("cmb.groups", []);
 	if (!Array.isArray(raw)) {
 		return [];
 	}
@@ -159,23 +159,23 @@ export function resolvedToHFModelItem(resolved: ResolvedModel): HFModelItem {
 }
 
 /**
- * Migrate old flat config (oaicopilot.baseUrl + oaicopilot.models) to new groups format.
+ * Migrate old flat config (cmb.baseUrl + cmb.models) to new groups format.
  * Groups models by owned_by. Only runs if groups is empty and models is non-empty.
  * Returns true if migration was performed.
  */
 export async function migrateOldConfig(): Promise<boolean> {
 	const config = vscode.workspace.getConfiguration();
-	const existingGroups = config.get<unknown[]>("oaicopilot.groups", []);
+	const existingGroups = config.get<unknown[]>("cmb.groups", []);
 	if (Array.isArray(existingGroups) && existingGroups.length > 0) {
 		return false; // already has groups, no migration needed
 	}
 
-	const oldModels = normalizeUserModels(config.get<unknown>("oaicopilot.models", []));
+	const oldModels = normalizeUserModels(config.get<unknown>("cmb.models", []));
 	if (oldModels.length === 0) {
 		return false; // nothing to migrate
 	}
 
-	const globalBaseUrl = config.get<string>("oaicopilot.baseUrl", "");
+	const globalBaseUrl = config.get<string>("cmb.baseUrl", "");
 
 	// Group models by owned_by (provider name)
 	const byProvider = new Map<string, HFModelItem[]>();
@@ -230,7 +230,7 @@ export async function migrateOldConfig(): Promise<boolean> {
 	}
 
 	// Write new groups config
-	await config.update("oaicopilot.groups", groups, vscode.ConfigurationTarget.Global);
+	await config.update("cmb.groups", groups, vscode.ConfigurationTarget.Global);
 	logger.info(`Migrated ${oldModels.length} models into ${groups.length} groups.`);
 	return true;
 }
@@ -241,7 +241,7 @@ export async function migrateOldConfig(): Promise<boolean> {
  */
 export function hasGroupConfig(): boolean {
 	const config = vscode.workspace.getConfiguration();
-	const groups = config.get<unknown[]>("oaicopilot.groups", []);
+	const groups = config.get<unknown[]>("cmb.groups", []);
 	return Array.isArray(groups) && groups.length > 0;
 }
 
@@ -445,7 +445,7 @@ export function tryParseJSONObject(text: string): { ok: true; value: Record<stri
  */
 export function createRetryConfig(): RetryConfig {
 	const config = vscode.workspace.getConfiguration();
-	const retryConfig = config.get<RetryConfig>("oaicopilot.retry", {
+	const retryConfig = config.get<RetryConfig>("cmb.retry", {
 		enabled: true,
 		max_attempts: RETRY_MAX_ATTEMPTS,
 		interval_ms: RETRY_INTERVAL_MS,
