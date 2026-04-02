@@ -1,8 +1,8 @@
 {
-	"name": "oai-compatible-copilot",
-	"publisher": "johnny-zhao",
-	"displayName": "OAI Compatible Provider for Copilot",
-	"description": "An extension that integrates OpenAI/Ollama/Anthropic/Gemini API Providers into GitHub Copilot Chat",
+	"name": "copilot-model-bridge",
+	"publisher": "btsd321",
+	"displayName": "Copilot Model Bridge",
+	"description": "Integrate OpenAI / Anthropic / Gemini / Ollama API providers into GitHub Copilot Chat",
 	"icon": "assets/logo.png",
 	"keywords": [
 		"ai",
@@ -54,7 +54,7 @@
 		"languageModelChatProviders": [
 			{
 				"vendor": "oaicopilot",
-				"displayName": "OAI Compatible",
+				"displayName": "Copilot Model Bridge",
 				"managementCommand": "oaicopilot.setApikey"
 			}
 		],
@@ -62,12 +62,12 @@
 			{
 				"command": "oaicopilot.setApikey",
 				"category": "OAICopilot",
-				"title": "Set OAI Compatible Apikey"
+				"title": "Set API Key"
 			},
 			{
 				"command": "oaicopilot.setProviderApikey",
 				"category": "OAICopilot",
-				"title": "Set OAI Compatible Multi-Provider Apikey"
+				"title": "Set Multi-Provider API Key"
 			},
 			{
 				"command": "oaicopilot.openConfig",
@@ -122,7 +122,7 @@
 			]
 		},
 		"configuration": {
-			"title": "OAI Compatible Copilot",
+			"title": "Copilot Model Bridge",
 			"properties": {
 				"oaicopilot.groups": {
 					"type": "array",
@@ -260,13 +260,21 @@
 											"properties": {
 												"type": {
 													"type": "string",
-													"enum": ["enabled", "disabled"]
+													"enum": [
+														"enabled",
+														"disabled"
+													]
 												}
 											}
 										},
 										"reasoning_effort": {
 											"type": "string",
-											"enum": ["high", "medium", "low", "minimal"],
+											"enum": [
+												"high",
+												"medium",
+												"low",
+												"minimal"
+											],
 											"description": "Reasoning effort level (OpenAI style)."
 										},
 										"reasoning": {
@@ -275,7 +283,13 @@
 											"properties": {
 												"effort": {
 													"type": "string",
-													"enum": ["high", "medium", "low", "minimal", "auto"]
+													"enum": [
+														"high",
+														"medium",
+														"low",
+														"minimal",
+														"auto"
+													]
 												},
 												"exclude": {
 													"type": "boolean",
@@ -312,12 +326,18 @@
 											"description": "Per-model request delay in ms."
 										}
 									},
-									"required": ["id"]
+									"required": [
+										"id"
+									]
 								},
 								"description": "Models configured under this group."
 							}
 						},
-						"required": ["name", "apiMode", "baseUrl"]
+						"required": [
+							"name",
+							"apiMode",
+							"baseUrl"
+						]
 					},
 					"description": "Model groups. Each group has one provider endpoint (apiMode + baseUrl + apiKey) and multiple models."
 				},
@@ -671,13 +691,14 @@
 	"devDependencies": {
 		"@eslint/js": "^9.13.0",
 		"@stylistic/eslint-plugin": "^2.9.0",
-		"@types/node": "^22",
 		"@types/mocha": "^10.0.6",
-		"@vscode/dts": "^0.4.1",
+		"@types/node": "^22",
 		"@types/vscode": "^1.104.0",
+		"@vscode/dts": "^0.4.1",
 		"@vscode/test-cli": "^0.0.11",
 		"@vscode/test-electron": "^2.5.2",
 		"eslint": "^9.13.0",
+		"mocha": "^11.7.5",
 		"prettier": "^3.1.0",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.39.0"
